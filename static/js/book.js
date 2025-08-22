@@ -89,6 +89,8 @@ $(document).ready(function () {
   $bookForm.validate({
     rules: {
       book_name: "required",
+      minlength: 5,
+      maxlength: 50,
       author_id: "required",
       category_id: "required",
       stock: {
