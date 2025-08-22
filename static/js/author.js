@@ -1,46 +1,55 @@
-$(document).ready(function () {
-  $("#userTable").DataTable({ responsive: true });
+$(document).ready(() => {
+  const $userTable = $("#userTable").DataTable({ responsive: true });
+  const $toastEl = $("#toast");
+  const $toastBody = $("#toast-body");
+  const toast = new bootstrap.Toast($toastEl[0]);
+  const $genreForm = $("#genreForm");
+  const $genreModal = $("#genreModal");
+  const $categorySelect = $("#categorySelect");
+  const $authorNameInput = $("#authorNameInput");
+  const $genreModalLabel = $("#genreModalLabel");
+  const $genreId = $("#genreId");
 
-  // Toast setup
-  const toastEl = document.getElementById("toast");
-  const toast = new bootstrap.Toast(toastEl);
+  const TOAST_BG_CLASSES = "bg-primary bg-success bg-danger bg-warning";
 
-  function showToast(message, bg = "bg-primary") {
-    $("#toast")
-      .removeClass("bg-primary bg-success bg-danger bg-warning")
-      .addClass(bg);
-    $("#toast-body").text(message);
+  const showToast = (message, bg = "bg-primary") => {
+    $toastEl.removeClass(TOAST_BG_CLASSES).addClass(bg);
+    $toastBody.text(message);
     toast.show();
-  }
+  };
 
-  // Open Add Modal reset
-  $("#add_record").click(function (e) {
-    e.preventDefault();
-    $("#genreForm")[0].reset();
-    $("#genreId").val("");
-    $("#authorNameInput").removeClass("is-invalid");
-    $("#categorySelect").removeClass("is-invalid");
-    $("#genreModalLabel").text("Add Author");
-    $("#genreModal").modal("show");
-  });
-
-  // Initialize Select2 WHEN modal is shown
-  $("#genreModal").on("shown.bs.modal", function () {
-    // Destroy previous Select2 instance if exists to avoid duplicates
-    if ($("#categorySelect").hasClass("select2-hidden-accessible")) {
-      $("#categorySelect").select2("destroy");
+  const initSelect2 = (value = null) => {
+    if ($categorySelect.hasClass("select2-hidden-accessible")) {
+      $categorySelect.select2("destroy");
     }
-    $("#categorySelect")
+    $categorySelect
+      .val(value)
+      .removeClass("is-invalid is-valid")
       .select2({
         placeholder: "Select a genre",
         width: "100%",
-        dropdownParent: $("#genreModal"), // Required for modal compatibility
+        dropdownParent: $genreModal,
       })
-      .trigger("change"); // force refresh
+      .trigger("change");
+  };
+
+  // Open Add Modal and reset form
+  $("#add_record").click((e) => {
+    e.preventDefault();
+    $genreForm[0].reset();
+    $genreId.val("");
+    $authorNameInput.removeClass("is-invalid is-valid");
+    initSelect2(null);
+    $genreForm.find(".text-danger").remove();
+    $genreModalLabel.text("Add Author");
+    $genreModal.modal("show");
   });
 
-  // jQuery Validation setup
-  $("#genreForm").validate({
+  // Initialize Select2 when modal shown (for safety, but we init on add/edit explicitly)
+  $genreModal.on("shown.bs.modal", () => initSelect2());
+
+  // Validation setup
+  $genreForm.validate({
     rules: {
       authorNameInput: {
         required: true,
@@ -59,73 +68,55 @@ $(document).ready(function () {
         required: "Please select a genre.",
       },
     },
-    errorClass: "is-invalid",
-    validClass: "is-valid",
     errorElement: "div",
-
-    // Prevent inline error messages from showing
-    errorPlacement: function () {},
-
-    highlight: function (element) {
-      $(element).addClass("is-invalid");
+    errorClass: "text-danger small mt-1",
+    onfocusout: (element) => {
+      if ($(element).val()) $(element).valid();
     },
-    unhighlight: function (element) {
-      $(element).removeClass("is-invalid");
-    },
-
-    // Show each error as toast
-    invalidHandler: function (event, validator) {
-      const errors = validator.errorList;
-      if (errors.length > 0) {
-        errors.forEach((err, index) => {
-          setTimeout(() => {
-            showToast(err.message, "bg-danger");
-          }, index * 1500);
-        });
+    errorPlacement: (error, element) => {
+      if (element.hasClass("select2-hidden-accessible")) {
+        error.insertAfter(element.next(".select2"));
+      } else {
+        error.insertAfter(element);
       }
     },
-
-    submitHandler: function (form) {
-      const id = $("#genreId").val();
-      const authorName = $("#authorNameInput").val().trim();
-      const categoryId = $("#categorySelect").val();
-
+    highlight: (element) => $(element).addClass("is-invalid"),
+    unhighlight: (element) => $(element).removeClass("is-invalid"),
+    submitHandler: (form) => {
+      const id = $genreId.val();
+      const authorName = $authorNameInput.val().trim();
+      const categoryId = $categorySelect.val();
       const url = id ? `/author/update/${id}` : "/author/create";
 
       $.ajax({
-        url: url,
+        url,
         method: "POST",
         contentType: "application/json",
         data: JSON.stringify({
           author_name: authorName,
-          category_id: parseInt(categoryId),
+          category_id: parseInt(categoryId, 10),
         }),
-        success: function (response) {
-          $("#genreModal").modal("hide");
+        success: (response) => {
+          $genreModal.modal("hide");
           showToast(
             response.message || "Author saved successfully",
             "bg-success"
           );
           setTimeout(() => location.reload(), 1500);
         },
-        error: function (xhr) {
-          let msg = "Something went wrong.";
-          if (xhr.responseJSON && xhr.responseJSON.error) {
-            msg = xhr.responseJSON.error;
-          }
+        error: (xhr) => {
+          const msg = xhr.responseJSON?.error || "Something went wrong.";
           showToast(msg, "bg-danger");
         },
       });
     },
   });
 
-  // Fix for Select2 not triggering jQuery Validate on change
-  $("#categorySelect").on("change", function () {
-    $(this).valid();
-  });
+  // Validate Select2 on change
+  $categorySelect.on("change", () => $categorySelect.valid());
 
-  // Format date helper
-  function formatUSTimeDate(dateString) {
+  // Format date columns
+  const formatUSTimeDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     if (isNaN(date)) return dateString;
@@ -137,97 +128,72 @@ $(document).ready(function () {
       minute: "2-digit",
       hour12: true,
     });
-  }
+  };
 
-  // Format dates in table
   $("#userTable tbody tr").each(function () {
-    const createdCell = $(this).find(".created-at");
-    const updatedCell = $(this).find(".updated-at");
-
-    createdCell.text(formatUSTimeDate(createdCell.text()));
-    updatedCell.text(formatUSTimeDate(updatedCell.text()));
+    const $row = $(this);
+    $row
+      .find(".created-at")
+      .text(formatUSTimeDate($row.find(".created-at").text()));
+    $row
+      .find(".updated-at")
+      .text(formatUSTimeDate($row.find(".updated-at").text()));
   });
 
-  // Edit Button
+  // Edit author
   $(document).on("click", ".update-btn", function () {
-    const row = $(this).closest("tr");
-    const id = row.data("id");
-    const authorName = row.find("td:nth-child(2)").text().trim();
-    const categoryId = row.data("genre-id");
+    const $row = $(this).closest("tr");
+    const id = $row.data("id");
+    const authorName = $row.find("td:nth-child(2)").text().trim();
+    const categoryId = $row.data("genre-id");
 
-    $("#genreId").val(id);
-    $("#authorNameInput").val(authorName);
+    $genreId.val(id);
+    $authorNameInput.val(authorName).removeClass("is-invalid is-valid");
+    $genreModalLabel.text("Edit Author");
 
-    // Set select2 value programmatically
-    // Destroy and recreate select2 to update value correctly on modal show
-    if ($("#categorySelect").hasClass("select2-hidden-accessible")) {
-      $("#categorySelect").select2("destroy");
-    }
-    $("#categorySelect").val(categoryId);
-
-    $("#genreModalLabel").text("Edit Author");
-    $("#genreModal").modal("show");
-
-    // Initialize select2 after modal shown and value set
-    $("#genreModal").one("shown.bs.modal", function () {
-      $("#categorySelect")
-        .select2({
-          placeholder: "Select a genre",
-          width: "100%",
-          dropdownParent: $("#genreModal"),
-        })
-        .val(categoryId)
-        .trigger("change");
-    });
-
-    // Reset validation classes
-    $("#authorNameInput").removeClass("is-invalid is-valid");
-    $("#categorySelect").removeClass("is-invalid is-valid");
+    // Initialize Select2 on modal shown with value
+    $genreModal.one("shown.bs.modal", () => initSelect2(categoryId));
+    $genreModal.modal("show");
   });
 
-  // Delete Button
+  // Delete author
   $(document).on("click", ".delete-btn", function () {
     const id = $(this).closest("tr").data("id");
-
     Swal.fire({
       title: "Are you sure?",
       text: "This will mark the author as deleted!",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, delete it!",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
     }).then((result) => {
       if (result.isConfirmed) {
         $.ajax({
           url: `/author/delete/${id}`,
           method: "POST",
-          success: function (response) {
+          success: (response) => {
             Swal.fire("Deleted!", response.message, "success");
             setTimeout(() => location.reload(), 1000);
           },
-          error: function () {
-            Swal.fire("Error!", "Could not delete author.", "error");
-          },
+          error: () => Swal.fire("Error!", "Could not delete author.", "error"),
         });
       }
     });
   });
 
-  // Status toggle
+  // Toggle author status
   $(document).on("change", ".status-toggle", function () {
     const id = $(this).closest("tr").data("id");
     const status = this.checked ? 1 : 0;
-
     $.ajax({
       url: `/author/status/${id}`,
       method: "POST",
       contentType: "application/json",
       data: JSON.stringify({ status }),
-      success: function (response) {
-        showToast(response.message || "Status updated", "bg-success");
-      },
-      error: function () {
-        showToast("Failed to update status", "bg-danger");
-      },
+      success: (response) =>
+        showToast(response.message || "Status updated", "bg-success"),
+      error: () => showToast("Failed to update status", "bg-danger"),
     });
   });
 });

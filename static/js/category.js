@@ -1,5 +1,22 @@
 $(document).ready(function () {
-  $("#userTable").DataTable({ responsive: true });
+  // Initialize DataTable with responsive and callback to enforce styles
+  $("#userTable").DataTable({
+    responsive: true,
+    stripeClasses: [], // Disable default striping
+    drawCallback: function () {
+      // Reapply styles after each draw
+      $(
+        "#userTable tbody tr, #userTable tbody tr.odd, #userTable tbody tr.even"
+      ).css({
+        background: "rgba(0, 0, 0, 0) !important",
+      });
+      $("#userTable td, #userTable td.odd, #userTable td.even").css({
+        background: "rgba(0, 0, 0, 0) !important",
+        "backdrop-filter": "blur(10px) !important",
+        "-webkit-backdrop-filter": "blur(10px) !important",
+      });
+    },
+  });
 
   // Initialize Toast
   var toastElement = document.getElementById("toast");
@@ -13,7 +30,7 @@ $(document).ready(function () {
     toast.show();
   }
 
-  // Setup jQuery Validation with Toast-based error messages
+  // Setup jQuery Validation with Toast and Inline error messages
   $("#genreForm").validate({
     rules: {
       genre: {
@@ -27,22 +44,16 @@ $(document).ready(function () {
         minlength: "Genre must be at least 2 characters.",
       },
     },
-    // Disable inline error placement
-    errorPlacement: function () {
-      // No inline error labels
+    errorPlacement: function (error, element) {
+      error.addClass("text-danger small");
+      error.insertAfter(element);
     },
     highlight: function (element) {
       $(element).addClass("is-invalid");
     },
     unhighlight: function (element) {
       $(element).removeClass("is-invalid");
-    },
-    invalidHandler: function (event, validator) {
-      // Show first error via toast
-      const firstError = validator.errorList[0];
-      if (firstError) {
-        showToast(firstError.message, "bg-warning");
-      }
+      $(element).next(".text-danger").remove();
     },
     submitHandler: function (form) {
       const genre = $("#genreInput").val();
@@ -74,11 +85,12 @@ $(document).ready(function () {
     $("#genreForm")[0].reset();
     $("#genreId").val("");
     $("#genreInput").removeClass("is-invalid");
+    $("#genreInput").next(".text-danger").remove();
     $("#genreModalLabel").text("Add Genre");
     $("#genreModal").modal("show");
   });
 
-  // US time date format
+  // Format US time date
   function formatUSTimeDate(dateString) {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -108,6 +120,7 @@ $(document).ready(function () {
     const genre = row.data("genre");
 
     $("#genreInput").val(genre).removeClass("is-invalid");
+    $("#genreInput").next(".text-danger").remove();
     $("#genreId").val(id);
     $("#genreModalLabel").text("Edit Genre");
     $("#genreModal").modal("show");

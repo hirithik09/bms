@@ -1,18 +1,23 @@
 $(document).ready(function () {
-  // Initialize DataTable with responsiveness
-  const dataTable = $("#bookTable").DataTable({ responsive: true });
+  const $bookTable = $("#bookTable").DataTable({
+    responsive: true,
+    autoWidth: false,
+  });
 
-  // Toast message generator
-  function showToast(type, message) {
-    const toastId = "toast" + Date.now(); // Unique ID for each toast
+  const $bookForm = $("#bookForm");
+  const $bookModal = $("#bookModal");
+  const $bookModalLabel = $("#bookModalLabel");
+  const $toastContainer = $("#toastContainer");
+
+  const showToast = (type, message) => {
+    const toastId = "toast" + Date.now();
     const bgClass =
-      type === "success"
-        ? "bg-success"
-        : type === "error"
-        ? "bg-danger"
-        : type === "warning"
-        ? "bg-warning text-dark"
-        : "bg-info";
+      {
+        success: "bg-success",
+        error: "bg-danger",
+        warning: "bg-warning text-dark",
+        info: "bg-info",
+      }[type] || "bg-info";
 
     const toastHtml = `
       <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0 mb-2" role="alert" data-bs-delay="4000">
@@ -20,19 +25,17 @@ $(document).ready(function () {
           <div class="toast-body">${message}</div>
           <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
-      </div>`;
-    $("#toastContainer").append(toastHtml); // Add toast to container
-    const toastElement = document.getElementById(toastId);
-    const bsToast = new bootstrap.Toast(toastElement);
-    bsToast.show(); // Show toast
-    toastElement.addEventListener(
-      "hidden.bs.toast",
-      () => toastElement.remove() // Remove toast after hiding
-    );
-  }
+      </div>
+    `;
 
-  // Format date to US-friendly format
-  function formatUSTimeDate(dateString) {
+    $toastContainer.append(toastHtml);
+    const toastEl = document.getElementById(toastId);
+    const bsToast = new bootstrap.Toast(toastEl);
+    bsToast.show();
+    toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+  };
+
+  const formatUSTimeDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     if (isNaN(date)) return dateString;
@@ -44,43 +47,37 @@ $(document).ready(function () {
       minute: "2-digit",
       hour12: true,
     });
-  }
+  };
 
-  // Format all table dates
-  function formatTableDates() {
-    $("#bookTable tbody tr").each(function () {
-      const createdCell = $(this).find("td").eq(7);
-      const updatedCell = $(this).find("td").eq(8);
-      createdCell.text(formatUSTimeDate(createdCell.text()));
-      updatedCell.text(formatUSTimeDate(updatedCell.text()));
-    });
-  }
-
-  formatTableDates(); // Apply date formatting on page load
-
-  // Generate random 5-digit ISBN
-  function generateISBN() {
-    return Math.floor(10000 + Math.random() * 90000);
-  }
-
-  // Show modal for adding a book
-  $("#add_record").click(function (e) {
-    e.preventDefault();
-    $("#bookForm")[0].reset(); // Reset form
-    $("#bookId").val(""); // Clear ID
-    $("#isbnInput").val(generateISBN()); // Set new ISBN
-    $("#previewImage").html(""); // Clear image preview
-    $(".is-invalid").removeClass("is-invalid"); // Remove error styles
-    $("#bookModalLabel").text("Add Book");
-    $("#bookModal").modal("show");
+  // Format date columns
+  $("#bookTable tbody tr").each(function () {
+    const $row = $(this);
+    $row
+      .find(".created-at")
+      .text(formatUSTimeDate($row.find(".created-at").text()));
+    $row
+      .find(".updated-at")
+      .text(formatUSTimeDate($row.find(".updated-at").text()));
   });
 
-  // Preview uploaded image
+  const generateISBN = () => Math.floor(10000 + Math.random() * 90000);
+
+  $("#add_record").click(function (e) {
+    e.preventDefault();
+    $bookForm[0].reset();
+    $("#bookId").val("");
+    $("#isbnInput").val(generateISBN());
+    $("#previewImage").html("");
+    $(".is-invalid").removeClass("is-invalid");
+    $bookModalLabel.text("Add Book");
+    $bookModal.modal("show");
+  });
+
   $("#imageInput").on("change", function () {
     const file = this.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = function (e) {
+      reader.onload = (e) => {
         $("#previewImage").html(`<img src="${e.target.result}" width="100" />`);
       };
       reader.readAsDataURL(file);
@@ -89,8 +86,7 @@ $(document).ready(function () {
     }
   });
 
-  // jQuery Validation setup
-  $("#bookForm").validate({
+  $bookForm.validate({
     rules: {
       book_name: "required",
       author_id: "required",
@@ -111,21 +107,17 @@ $(document).ready(function () {
         min: "Stock must be at least 0",
       },
     },
-    errorPlacement: function (error, element) {
+    errorPlacement: (error, element) => {
       error.addClass("text-danger small mt-1 d-block");
-      error.insertAfter(element); // Place error under field
+      error.insertAfter(element);
     },
-    highlight: function (element) {
-      $(element).addClass("is-invalid"); // Red border on error
-    },
-    unhighlight: function (element) {
-      $(element).removeClass("is-invalid"); // Remove error border
-    },
+    highlight: (element) => $(element).addClass("is-invalid"),
+    unhighlight: (element) => $(element).removeClass("is-invalid"),
 
     submitHandler: function (form) {
       const formData = new FormData(form);
       const id = $("#bookId").val();
-      const url = id ? `/book/update/${id}` : "/book/create"; // Use update or create URL
+      const url = id ? `/book/update/${id}` : "/book/create";
 
       $.ajax({
         url: url,
@@ -134,27 +126,26 @@ $(document).ready(function () {
         processData: false,
         contentType: false,
         success: function (response) {
-          $("#bookModal").modal("hide");
+          $bookModal.modal("hide");
           showToast("success", "Book saved successfully");
-          setTimeout(() => location.reload(), 1500); // Reload after success
+          setTimeout(() => location.reload(), 1500);
         },
         error: function (xhr) {
           let errorMessage = "Something went wrong";
           if (xhr.responseJSON && xhr.responseJSON.error) {
             errorMessage = xhr.responseJSON.error;
           }
-          showToast("error", errorMessage); // Show error toast
+          showToast("error", errorMessage);
         },
       });
 
-      return false; // Prevent default form submit
+      return false;
     },
   });
 
-  // Edit button logic
   $(document).on("click", ".edit-btn", function () {
-    const row = $(this).closest("tr");
-    const id = row.data("id");
+    const $row = $(this).closest("tr");
+    const id = $row.data("id");
 
     $.getJSON(`/book/${id}`, function (book) {
       $("#bookId").val(book.id);
@@ -163,6 +154,7 @@ $(document).ready(function () {
       $("#authorSelect").val(book.author_id);
       loadGenresForAuthor(book.author_id, function () {
         $("#genreSelect").val(book.category_id);
+        $("#genreSelect").valid();
       });
       $("#stockInput").val(book.stock);
       $("#previewImage").html(
@@ -171,12 +163,11 @@ $(document).ready(function () {
           : ""
       );
       $(".is-invalid").removeClass("is-invalid");
-      $("#bookModalLabel").text("Edit Book");
-      $("#bookModal").modal("show");
+      $bookModalLabel.text("Edit Book");
+      $bookModal.modal("show");
     });
   });
 
-  // Delete button logic
   $(document).on("click", ".delete-btn", function () {
     const id = $(this).closest("tr").data("id");
 
@@ -201,7 +192,6 @@ $(document).ready(function () {
     });
   });
 
-  // Toggle status switch
   $(document).on("change", ".status-toggle", function () {
     const id = $(this).closest("tr").data("id");
     const status = this.checked ? "1" : "0";
@@ -210,29 +200,27 @@ $(document).ready(function () {
       type: "POST",
       contentType: "application/json",
       data: JSON.stringify({ status: status }),
-      success: function () {
-        showToast("success", "Status changed");
-      },
-      error: function () {
-        showToast("error", "Status not updated");
-      },
+      success: () => showToast("success", "Status changed"),
+      error: () => showToast("error", "Status not updated"),
     });
   });
 
-  // Update genre dropdown based on selected author
   $("#authorSelect").change(function () {
+    $(this).valid();
     const authorId = $(this).val();
-    if (!authorId) return;
+    if (!authorId) {
+      $("#genreSelect").val("").valid();
+      return;
+    }
     $.getJSON(`/author/${authorId}/genres`, function (data) {
       if (data.length) {
-        $("#genreSelect").val(data[0].id); // Set first genre
+        $("#genreSelect").val(data[0].id).valid();
       } else {
-        $("#genreSelect").val("");
+        $("#genreSelect").val("").valid();
       }
     });
   });
 
-  // Helper to load genres for edit mode
   function loadGenresForAuthor(authorId, callback) {
     if (!authorId) return callback();
     $.getJSON(`/author/${authorId}/genres`, function (data) {
