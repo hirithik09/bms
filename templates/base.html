@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/bootstrap5.min.css') }}"
+    />
+    <script src="{{ url_for('static', filename='js/bundle.min.js') }}"></script>
+    <link
+      rel="stylesheet"
+      href="{{url_for('static',filename='css/appstyle.css')}}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{url_for('static',filename='css/datatable.min.css')}}"
+    />
+
+    <title>{% block title %}Galaxy Welcome{% endblock %}</title>
+  </head>
+  <body>
+    {% include "partials/header.html" %}
+
+    <!-- Main content -->
+    <main class="container mt-4">{% block content %} {% endblock %}</main>
+
+    <!-- Inside base.html (recommended) -->
+    {% with messages = get_flashed_messages() %} {% if messages %}
+    <div class="alert alert-info mt-3 container">
+      {% for message in messages %} {{ message }} {% endfor %}
+    </div>
+    {% endif %} {% endwith %} {% include "partials/footer.html" %}
+  </body>
+</html>
